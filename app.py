@@ -5,45 +5,43 @@ import json
 
 app = Flask(__name__)
 
-#Confi base de datos de SQLITE
+# Configuración base de datos SQLITE
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///metapython.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
-#modelo tabla log
+# Modelo tabla log
 class Log(db.Model):
-    id=db.Column(db.Integer,primary_key=True)
+    id = db.Column(db.Integer, primary_key=True)
     fecha_y_hora = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-    texto = db.Column(db.TEXT)
+    texto = db.Column(db.Text)
 
-#Crear una tabla si no existe
+# Crear tabla si no existe
 with app.app_context():
     db.create_all()
 
-#Función para ordenar los registros por fecha y hora
+# Función para ordenar registros
 def ordenar_por_fecha_y_hora(registros):
     return sorted(registros, key=lambda x: x.fecha_y_hora, reverse=True)
 
 @app.route('/')
 def index():
-    #Obtener todos los registros de la base de datos
     registros = Log.query.all()
     registros_ordenados = ordenar_por_fecha_y_hora(registros)
     return render_template('index.html', registros=registros_ordenados)
 
 mensajes_log = []
 
-#Función para agregar mensajes y guardar en la base de datos
+# Función para agregar mensajes
 def agregar_mensajes_log(texto):
-    
+
     mensajes_log.append(texto)
 
-    #Guardar el mensaje en la bse de datos
     nuevo_registro = Log(texto=texto)
     db.session.add(nuevo_registro)
-    db.session.comit()
+    db.session.commit()
 
-#Token de verificación para la configuración
+# Token verificación
 TOKEN_VALCODE = "VALCODE"
 
 @app.route('/webhook', methods=['GET', 'POST'])
@@ -52,8 +50,8 @@ def webhook():
         challenge = verificar_token(request)
         return challenge
     elif request.method == 'POST':
-        reponse = recibir_mensajes(request)
-        return reponse
+        response = recibir_mensajes(request)
+        return response
 
 def verificar_token(req):
     token = req.args.get('hub.verify_token')
@@ -62,15 +60,16 @@ def verificar_token(req):
     if challenge and token == TOKEN_VALCODE:
         return challenge
     else:
-        return jsonify({'error': 'Token Inválido'}), 401
+        return jsonify({'error': 'Token Invalido'}), 401
 
 def recibir_mensajes(req):
-    req = request.get_json()
-    agregar_mensajes_log(req)
-    
+
+    data = req.get_json()
+
+    # Guardar JSON como texto
+    agregar_mensajes_log(json.dumps(data))
+
     return jsonify({'message': 'EVENT_RECEIVED'})
 
-if __name__=='__main__':
-    app.run(host='0.0.0.0', port=80, debug=True)
-
-    #importante ponerle port 80 para que abra la página correcta
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000, debug=True)
